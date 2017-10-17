@@ -4,22 +4,23 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/big"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/mux"
 )
 
 type payload struct {
-	values data
+	Results data
 }
 
 type data struct {
-	Servent servant      `json:"servantName"`
-	CE      craftEssence `json:"ceName"`
+	Servant []servant      `json:"servants"`
+	CE      []craftEssence `json:"ce"`
 }
 
-type servant []string
-type craftEssence []string
+// type craftEssenceCollection []craftEssence
 
 //USE REQ FORM PARSE FORM
 //marshall struct data to json
@@ -39,14 +40,13 @@ func main() {
 }
 
 func fetchOverallScrape(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+
+	rTime := new(big.Int)
+	fmt.Println(rTime.Binomial(1000, 10))
+
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
-	// fmt.Printf("type of request %T", r)
-	// fmt.Println("")
-	// fmt.Printf("value of request %v", r)
-	// fmt.Println("")
-	// fmt.Println("request body", r.Body)
-	//check form parse req
 	err := r.ParseForm()
 	if err != nil {
 		log.Fatal(err)
@@ -59,20 +59,27 @@ func fetchOverallScrape(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("")
 	fmt.Println("url value", query["name"])
 
-	var servant []string
-	var ce []string
+	// fmt.Println("this is value of servantsMain", s)
 
-	servant = append(servant, "merlin")
-	ce = append(ce, "formalcraft")
-	servant = append(servant, "ishtar")
+	s := servantsMain()
+	c := ceMain()
 
-	d := data{servant, ce}
+	fmt.Printf("type of servantsMain %T", s)
+	fmt.Printf("value of servantsMain %T", s)
+
+	d := data{Servant: s, CE: c}
 	p := payload{d}
+
 	searchJSON, err := json.Marshal(p)
+
+	fmt.Println("this is value of searchJson", p)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(searchJSON)
+
+	elapsed := time.Since(start)
+	log.Printf("craft essence search took %s", elapsed)
 }
 
 type middleWareServer struct {
