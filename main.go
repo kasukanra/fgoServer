@@ -33,10 +33,34 @@ func main() {
 	r := mux.NewRouter()
 	// routes consist of a path and a handler function.
 	r.HandleFunc("/testGoApi", fetchOverallScrape).Methods("GET")
+	r.HandleFunc("/fetchCard", fetchCard).Methods("GET")
 
 	// bind to a port and pass our router in
 	http.Handle("/", &middleWareServer{r})
 	log.Fatal(http.ListenAndServe(":8080", nil))
+}
+
+func fetchCard(w http.ResponseWriter, r *http.Request) {
+	if r != nil {
+		err := r.ParseForm()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		query := r.Form
+		// fmt.Printf("type of form %T", query)
+		// fmt.Println("")
+		// fmt.Printf("value of form %v", query)
+		// fmt.Println("")
+		fmt.Println("card type", query["cardType"])
+		fmt.Println("url value", query["pageLink"])
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+
+		temp := []byte("this is fetchCard")
+		w.Write(temp)
+	}
 }
 
 func fetchOverallScrape(w http.ResponseWriter, r *http.Request) {
@@ -47,32 +71,19 @@ func fetchOverallScrape(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
-	err := r.ParseForm()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	query := r.Form
-	fmt.Printf("type of form %T", query)
-	fmt.Println("")
-	fmt.Printf("value of form %v", query)
-	fmt.Println("")
-	fmt.Println("url value", query["name"])
-
 	// fmt.Println("this is value of servantsMain", s)
-
 	s := servantsMain()
 	c := ceMain()
-
-	fmt.Printf("type of servantsMain %T", s)
-	fmt.Printf("value of servantsMain %T", s)
 
 	d := data{Servant: s, CE: c}
 	p := payload{d}
 
 	searchJSON, err := json.Marshal(p)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	fmt.Println("this is value of searchJson", p)
+	// fmt.Println("this is value of searchJson", p)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)

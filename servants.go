@@ -16,6 +16,7 @@ type servant struct {
 	PageLink string `json:"pageLink"`
 	Icon     string `json:"icon"`
 	Rarity   string `json:"rarity"`
+	CardType string `json:"cardType"`
 }
 
 func servantsMain() []servant {
@@ -67,8 +68,6 @@ func scrapeServantNames(s chan servant, length int) chan servant {
 	// use CSS selector found with the browser inspector
 	// for each, use index and item
 
-	// var servantCollection []servant
-
 	var wg sync.WaitGroup
 	wg.Add(length)
 
@@ -87,12 +86,9 @@ func scrapeServantNames(s chan servant, length int) chan servant {
 		imageLink, _ := item.Find("td").First().Next().Find("img").Attr("src")
 		imageLink = "https://grandorder.wiki" + imageLink
 
+		cardType := "servant"
+
 		rarity := item.Find("td").First().Next().Next().Next().Next().Text()
-
-		// arr = append(arr, engName)
-
-		// fmt.Println(engName)
-		// fmt.Println(jpName)
 
 		go func(s chan servant) {
 			defer wg.Done()
@@ -102,10 +98,10 @@ func scrapeServantNames(s chan servant, length int) chan servant {
 				PageLink: servantLink,
 				Icon:     imageLink,
 				Rarity:   rarity,
+				CardType: cardType,
 			}
 			s <- tempServant
 		}(s)
-
 	})
 	wg.Wait()
 	return s

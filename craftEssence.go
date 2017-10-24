@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"sync"
 
@@ -13,6 +12,7 @@ type craftEssence struct {
 	PageLink string `json:"pageLink"`
 	Icon     string `json:"icon"`
 	Rarity   string `json:"rarity"`
+	CardType string `json:"cardType"`
 }
 
 func ceMain() []craftEssence {
@@ -27,7 +27,6 @@ func ceMain() []craftEssence {
 	// turn channel into a slice
 	for n := range tempCE {
 		if len(n.EngName) > 0 {
-			fmt.Println(n)
 			ceCollection = append(ceCollection, n)
 		}
 	}
@@ -61,8 +60,6 @@ func scrapeCENames(c chan craftEssence, length int) chan craftEssence {
 	doc.Find("tr").Each(func(index int, item *goquery.Selection) {
 		engName := item.Find("td").First().Next().Next().Find("a").Text()
 
-		fmt.Println("engName", engName)
-
 		ceLink, _ := item.Find("td").First().Next().Next().Find("a").Attr("href")
 		ceLink = "https://grandorder.wiki" + ceLink
 
@@ -71,10 +68,7 @@ func scrapeCENames(c chan craftEssence, length int) chan craftEssence {
 
 		rarity := item.Find("td").First().Next().Next().Next().Text()
 
-		// arr = append(arr, engName)
-
-		// fmt.Println(engName)
-		// fmt.Println(jpName)
+		cardType := "ce"
 
 		go func(c chan craftEssence) {
 			defer wg.Done()
@@ -83,10 +77,10 @@ func scrapeCENames(c chan craftEssence, length int) chan craftEssence {
 				PageLink: ceLink,
 				Icon:     imageLink,
 				Rarity:   rarity,
+				CardType: cardType,
 			}
 			c <- tempCE
 		}(c)
-
 	})
 	wg.Wait()
 	return c
