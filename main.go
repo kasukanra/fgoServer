@@ -55,6 +55,8 @@ func fetchCard(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("card type", query["cardType"])
 		fmt.Println("url value", query["pageLink"])
 
+		individualScrapeMain(query["cardType"], query["pageLink"])
+
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 
