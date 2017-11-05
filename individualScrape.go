@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -12,14 +13,19 @@ import (
 )
 
 type servantCard struct {
-	EngName   string              `json:"engName"`
-	JpName    string              `json:"jpName"`
-	PageLink  string              `json:"pageLink"`
-	Icon      string              `json:"icon"`
-	Rarity    string              `json:"rarity"`
-	CardType  string              `json:"cardType"`
-	Available servantAvailability `json:"availability"`
-	Params    servantParameters   `json:"params"`
+	EngName     string              `json:"engName"`
+	JpName      string              `json:"jpName"`
+	PageLink    string              `json:"pageLink"`
+	Icon        string              `json:"icon"`
+	Rarity      string              `json:"rarity"`
+	CardType    string              `json:"cardType"`
+	Available   servantAvailability `json:"availability"`
+	Params      servantParameters   `json:"params"`
+	Stats       servantStats        `json:"stats"`
+	Traits      servantTraits       `json:"traits"`
+	CardChoices servantCardChoices  `json:"cardChoices"`
+	CardHits    servantCardHits     `json:"cardHits"`
+	Skills      servantSkills       `json:"skills"`
 }
 
 type servantAvailability struct {
@@ -45,7 +51,38 @@ type servantParameters struct {
 	alignment      string
 }
 
+type servantTraits struct {
+	traits string
+}
+
+type servantCardChoices struct {
+	quick  int
+	arts   int
+	buster int
+}
+
+type servantCardHits struct {
+	quickHits  int
+	artsHits   int
+	busterHits int
+	extraHits  int
+}
+
 type servantStats struct {
+	strength  string
+	endurance string
+	agility   string
+	mana      string
+	luck      string
+	np        string
+}
+
+type servantSkills struct {
+	firstSkill    string
+	secondSkill   string
+	thirdSkill    string
+	firstPassive  string
+	secondPassive string
 }
 
 func main() {
@@ -82,10 +119,14 @@ func scrapeServantPage(s *servantCard) {
 	// create the length of waitgroups depending on whether it's a card or not
 	// or just use channels
 
-	wg.Add(2)
-	go servantTags(doc, &wg, s)
-	go servantParams(doc, &wg, s)
-
+	wg.Add(7)
+	go getServantTags(doc, &wg, s)
+	go getServantParams(doc, &wg, s)
+	go getServantTraits(doc, &wg, s)
+	go getServantCardChoices(doc, &wg, s)
+	go getServantCardHits(doc, &wg, s)
+	go getServantStatistics(doc, &wg, s)
+	go getServantActiveSkills(doc, &wg, s)
 	wg.Wait()
 
 	//put all of this in a channel i think
@@ -95,7 +136,7 @@ func scrapeServantPage(s *servantCard) {
 	//one function handle stats etc
 }
 
-func servantTags(doc *goquery.Document, wg *sync.WaitGroup, s *servantCard) {
+func getServantTags(doc *goquery.Document, wg *sync.WaitGroup, s *servantCard) {
 	doc.Find("tbody").Each(func(index int, item *goquery.Selection) {
 		// use index to determine if jp event only/event character only
 
@@ -120,7 +161,7 @@ func servantTags(doc *goquery.Document, wg *sync.WaitGroup, s *servantCard) {
 	defer wg.Done()
 }
 
-func servantParams(doc *goquery.Document, wg *sync.WaitGroup, s *servantCard) {
+func getServantParams(doc *goquery.Document, wg *sync.WaitGroup, s *servantCard) {
 	doc.Find("div[style*='width:300px;margin-top:10px']").First().Find("div[style*='display:inline-block;width:150px;text-align:left;padding: 3px 0 3px 6px;border-left: 2px #4b9acc solid;vertical-align:top']").Each(func(index int, item *goquery.Selection) {
 		// use index to determine if jp event only/event character only
 
@@ -131,13 +172,11 @@ func servantParams(doc *goquery.Document, wg *sync.WaitGroup, s *servantCard) {
 			s.Params.minAtttack = min
 			s.Params.maxAtttack = max
 			s.Params.grailAttack = grail
-			fmt.Println("attack")
 		case 1:
 			min, max, grail := processParams(item.Text())
 			s.Params.minHP = min
 			s.Params.maxHP = max
 			s.Params.grailHP = grail
-			fmt.Println("hp")
 		case 2:
 			i, err := strconv.ParseFloat(item.Text(), 64)
 			if err != nil {
@@ -222,10 +261,118 @@ func removeSymbols(s string) string {
 	return processString
 }
 
-func servantStats(doc *goquery.Document, wg *sync.WaitGroup, s *servantCard) {
-	doc.Find("div[style*='width:300px;margin-top:10px']").First().Next().Find("div[style*='display:inline-block;width:150px;text-align:left;padding: 3px 0 3px 6px;border-left: 2px #4b9acc solid;vertical-align:top']").Each(func(index int, item *goquery.Selection) {
-
-		fmt.Println(item.Text())
+func getServantTraits(doc *goquery.Document, wg *sync.WaitGroup, s *servantCard) {
+	doc.Find("div[style*='width:300px;margin-top:10px;font-size:85%;']").Find("p").Each(func(index int, item *goquery.Selection) {
+		s.Traits.traits = item.Text()
 	})
+	defer wg.Done()
+}
+
+func getServantCardChoices(doc *goquery.Document, wg *sync.WaitGroup, s *servantCard) {
+	commandQuick := "Command Card Quick.png"
+	commandArts := "Command Card Arts.png"
+	commandBuster := "Command Card Buster.png"
+
+	quickCount := 0
+	artsCount := 0
+	busterCount := 0
+
+	doc.Find("div[style*='margin-top: 10px;']").Find("p").Find("img").Each(func(index int, item *goquery.Selection) {
+		// temp := item.Attr("width")
+
+		temp, exist := item.Attr("alt")
+		if !exist {
+			os.Exit(1)
+		}
+
+		switch temp {
+		case commandQuick:
+			quickCount++
+			s.CardChoices.quick = quickCount
+		case commandArts:
+			artsCount++
+			s.CardChoices.arts = artsCount
+		case commandBuster:
+			busterCount++
+			s.CardChoices.buster = busterCount
+		}
+	})
+
+	defer wg.Done()
+}
+
+func getServantCardHits(doc *goquery.Document, wg *sync.WaitGroup, s *servantCard) {
+	// quickHits := 0
+	// artsHits := 0
+	// busterHits := 0
+	// extraHits := 0
+
+	collectString := doc.Find("div[style*='margin-top: 10px;']").Find("p").Find("span[style*='font-size: 100%']").Find("b").Text()
+
+	tempHold := strings.Split(strings.Replace(removeSymbols(collectString), "NumberofHits", "", -1), "")
+	fmt.Println("this is temp hold ", tempHold)
+
+	for i := range tempHold {
+		switch i {
+		case 0:
+			s.CardHits.quickHits = parseStrings(tempHold[i])
+		case 1:
+			s.CardHits.artsHits = parseStrings(tempHold[i])
+		case 2:
+			s.CardHits.busterHits = parseStrings(tempHold[i])
+		case 3:
+			s.CardHits.extraHits = parseStrings(tempHold[i])
+		}
+	}
+
+	defer wg.Done()
+}
+
+func getServantStatistics(doc *goquery.Document, wg *sync.WaitGroup, s *servantCard) {
+	doc.Find("div[style*='display:inline-block;vertical-align:top;margin:12px -120px 0 0']").Find("div[style*='display:inline-block;width:150px;text-align:left;padding: 3px 0 3px 6px;border-left: 2px #4b9acc solid;vertical-align:top']").Each(func(index int, item *goquery.Selection) {
+		// change values into radar subset here?
+		switch index {
+		case 0:
+			s.Stats.strength = item.Text()
+		case 1:
+			s.Stats.endurance = item.Text()
+		case 2:
+			s.Stats.agility = item.Text()
+		case 3:
+			s.Stats.mana = item.Text()
+		case 4:
+			s.Stats.luck = item.Text()
+		case 5:
+			s.Stats.np = item.Text()
+		}
+		//fmt.Println(item.Text())
+	})
+	defer wg.Done()
+}
+
+// display: block;
+
+func getServantActiveSkills(doc *goquery.Document, wg *sync.WaitGroup, s *servantCard) {
+	fmt.Println("servant skills are running")
+
+	doc.Find(".servant-skills").Find("div .tabbertab").Find("div .tabbertab").Each(func(index int, item *goquery.Selection) {
+
+		tempFind, exist := item.Attr("title")
+		if exist {
+			fmt.Println("this is getServantskills", tempFind)
+			fmt.Println("this is the index number", index)
+		}
+
+		switch index {
+		case 0:
+			s.Skills.firstSkill = tempFind
+		case 1:
+			s.Skills.secondSkill = tempFind
+		case 2:
+			s.Skills.thirdSkill = tempFind
+		}
+
+	})
+
 	defer wg.Done()
 }
